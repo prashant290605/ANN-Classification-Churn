@@ -156,7 +156,26 @@ with tab1:
     # load the trained model
     @st.cache_resource
     def load_model():
-        return tf.keras.models.load_model('regression_model.h5')
+        try:
+            # First try the standard way
+            return tf.keras.models.load_model('regression_model.h5')
+        except (ImportError, TypeError) as e:
+            st.warning("Standard model loading failed, trying alternative method...")
+            try:
+                # Alternative loading method for compatibility
+                model = tf.keras.models.load_model('regression_model.h5', compile=False)
+                # Compile the model with basic settings
+                model.compile(
+                    optimizer='adam',
+                    loss='mean_squared_error',
+                    metrics=['mae']
+                )
+                return model
+            except Exception as e2:
+                st.error(f"Error loading model: {str(e2)}")
+                # Provide a fallback message
+                st.error("Model could not be loaded. Please try running the app locally using 'streamlit run streamlit_regression.py'")
+                st.stop()
     
     model = load_model()
     
