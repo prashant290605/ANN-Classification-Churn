@@ -159,8 +159,8 @@ with tab1:
         try:
             # First try the standard way
             return tf.keras.models.load_model('regression_model.h5')
-        except (ImportError, TypeError) as e:
-            st.warning("Standard model loading failed, trying alternative method...")
+        except (ImportError, TypeError, ValueError) as e:
+            st.warning(f"Standard model loading failed: {str(e)}, trying alternative method...")
             try:
                 # Alternative loading method for compatibility
                 model = tf.keras.models.load_model('regression_model.h5', compile=False)
@@ -173,25 +173,45 @@ with tab1:
                 return model
             except Exception as e2:
                 st.error(f"Error loading model: {str(e2)}")
-                # Provide a fallback message
-                st.error("Model could not be loaded. Please try running the app locally using 'streamlit run streamlit_regression.py'")
-                st.stop()
+                # Create a simple fallback model for demonstration
+                st.warning("Creating a simple fallback model for demonstration purposes.")
+                inputs = tf.keras.layers.Input(shape=(12,))
+                x = tf.keras.layers.Dense(10, activation='relu')(inputs)
+                outputs = tf.keras.layers.Dense(1, activation='linear')(x)
+                model = tf.keras.Model(inputs=inputs, outputs=outputs)
+                model.compile(optimizer='adam', loss='mean_squared_error', metrics=['mae'])
+                return model
     
     model = load_model()
     
     # load the encoder and scaler
     @st.cache_resource
     def load_encoders_and_scaler():
-        with open('label_encoder_gender.pkl', 'rb') as file:
-            label_encoder_gender = pickle.load(file)
+        try:
+            with open('label_encoder_gender.pkl', 'rb') as file:
+                label_encoder_gender = pickle.load(file)
             
-        with open('onehot_encoder_geo.pkl', 'rb') as file:
-            label_encoder_geo = pickle.load(file)
-        
-        with open('scaler.pkl', 'rb') as file:
-            scaler = pickle.load(file)
+            with open('onehot_encoder_geo.pkl','rb') as file:
+                label_encoder_geo = pickle.load(file)
             
-        return label_encoder_gender, label_encoder_geo, scaler
+            with open('scaler.pkl','rb') as file:
+                scaler = pickle.load(file)
+            
+            return label_encoder_gender, label_encoder_geo, scaler
+        except Exception as e:
+            st.error(f"Error loading encoders or scaler: {str(e)}")
+            # Create fallback encoders and scaler
+            st.warning("Creating fallback encoders and scaler for demonstration purposes.")
+            label_encoder_gender = LabelEncoder()
+            label_encoder_gender.classes_ = np.array(['Female', 'Male'])
+            
+            onehot_encoder_geo = OneHotEncoder(sparse=False)
+            onehot_encoder_geo.categories_ = [np.array(['France', 'Germany', 'Spain'])]
+            onehot_encoder_geo.feature_names_in_ = np.array(['Geography'])
+            
+            scaler = StandardScaler()
+            
+            return label_encoder_gender, onehot_encoder_geo, scaler
     
     label_encoder_gender, label_encoder_geo, scaler = load_encoders_and_scaler()
     
@@ -200,11 +220,16 @@ with tab1:
         st.markdown("<div class='header-style'>👤 Customer Demographics</div>", unsafe_allow_html=True)
         
         with st.container():
-            geography = st.selectbox('🌎 Geography', label_encoder_geo.categories_[0], help="The country where the customer is located")
+            try:
+                geography = st.selectbox('�� Geography', label_encoder_geo.categories_[0], help="The country where the customer is located")
+            except:
+                geography = st.selectbox('🌎 Geography', ['France', 'Germany', 'Spain'], help="The country where the customer is located")
             
-            # Use the exact classes from the label encoder
-            gender_options = label_encoder_gender.classes_.tolist()
-            gender = st.selectbox('👫 Gender', gender_options, help="Customer's gender")
+            try:
+                gender_options = label_encoder_gender.classes_.tolist()
+                gender = st.selectbox('👫 Gender', gender_options, help="Customer's gender")
+            except:
+                gender = st.selectbox('👫 Gender', ['Female', 'Male'], help="Customer's gender")
             
             age = st.slider('🎂 Age', 18, 92, 35, help="Customer's age in years")
             
