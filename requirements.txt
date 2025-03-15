@@ -1,0 +1,10 @@
+tensorflow==2.15.0
+pandas
+numpy 
+scikit-learn
+tensorboard
+matplotlib
+streamlit
+plotly>=5.10.0
+streamlit-lottie>=0.0.3
+requests>=2.28.0
