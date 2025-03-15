@@ -191,7 +191,8 @@ with tab1:
         with st.container():
             geography = st.selectbox('🌎 Geography', label_encoder_geo.categories_[0], help="The country where the customer is located")
             
-            gender = st.selectbox('👤 Gender', label_encoder_gender.classes_, help="Customer's gender")
+            gender_options = label_encoder_gender.classes_.tolist()
+            gender = st.selectbox('👤 Gender', gender_options, help="Customer's gender")
             
             age = st.slider('🎂 Age', 18, 92, 35, help="Customer's age in years")
             
@@ -243,8 +244,30 @@ with tab1:
             # Combine one hot encoded columns with input data
             input_data = pd.concat([input_data.reset_index(drop=True), geo_encoded_df], axis=1)
             
-            # Scale the input data
-            input_data_scaled = scaler.transform(input_data)
+            # Scale the input data - using try/except to handle potential feature mismatch
+            try:
+                input_data_scaled = scaler.transform(input_data)
+            except ValueError as e:
+                if "feature names" in str(e).lower():
+                    # If there's a feature name mismatch, we'll ignore feature names during transformation
+                    st.warning("Feature name mismatch detected. Using feature values only.")
+                    # Get the feature names the scaler was trained with
+                    if hasattr(scaler, 'feature_names_in_'):
+                        # Reorder columns to match the scaler's expected order
+                        expected_features = scaler.feature_names_in_
+                        # Create a DataFrame with zeros for any missing columns
+                        input_reordered = pd.DataFrame(0, index=range(1), columns=expected_features)
+                        # Fill in the values we have
+                        for col in input_data.columns:
+                            if col in expected_features:
+                                input_reordered[col] = input_data[col].values
+                        input_data_scaled = scaler.transform(input_reordered)
+                    else:
+                        # If we can't get the feature names, just try transforming the values
+                        input_data_scaled = scaler.transform(input_data.values)
+                else:
+                    # If it's a different error, re-raise it
+                    raise e
             
             # Predict churn
             prediction = model.predict(input_data_scaled)
