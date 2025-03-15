@@ -32,9 +32,10 @@ st.markdown("""
         border-radius: 4px 4px 0px 0px;
         padding: 10px 20px;
         font-weight: 600;
+        color: #1a1a1a;  /* Darker text color for better visibility */
     }
     .stTabs [aria-selected="true"] {
-        background-color: #7c8eff !important;
+        background-color: #3040ff !important;
         color: white !important;
     }
     div.stButton > button {
@@ -56,12 +57,14 @@ st.markdown("""
         animation: fadeIn 0.5s;
     }
     .prediction-box.churn {
-        background-color: #ff7c7c44;
+        background-color: #ffebee;  /* Lighter red background */
         border: 2px solid #ff5252;
+        color: #c62828;  /* Darker red text */
     }
     .prediction-box.stay {
-        background-color: #7cff8c44;
+        background-color: #e8f5e9;  /* Lighter green background */
         border: 2px solid #52ff63;
+        color: #2e7d32;  /* Darker green text */
     }
     @keyframes fadeIn {
         from { opacity: 0; }
@@ -76,12 +79,32 @@ st.markdown("""
         padding: 15px;
         border-radius: 8px;
         margin-bottom: 15px;
+        color: #1a1a1a;  /* Darker text color */
     }
     .header-style {
         font-size: 28px;
         font-weight: bold;
         color: #3040ff;
         margin-bottom: 20px;
+    }
+    .recommendation-box {
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    .recommendation-box.churn {
+        background-color: #ffebee;
+        color: #1a1a1a;  /* Darker text color */
+        border: 1px solid #ff5252;
+    }
+    .recommendation-box.stay {
+        background-color: #e8f5e9;
+        color: #1a1a1a;  /* Darker text color */
+        border: 1px solid #52ff63;
+    }
+    .recommendation-box h4 {
+        color: #1a1a1a;  /* Darker text color */
+        margin-bottom: 10px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -237,7 +260,7 @@ with tab1:
         if prediction_proba > 0.5:
             st.markdown(f"""
             <div class='prediction-box churn'>
-                <h2 style='color: #e01e37;'>⚠️ Customer Likely to Churn</h2>
+                <h2>⚠️ Customer Likely to Churn</h2>
                 <h3>Churn Probability: {prediction_proba:.2%}</h3>
                 <p>Our model predicts that this customer has a high risk of leaving your company.</p>
             </div>
@@ -245,7 +268,7 @@ with tab1:
         else:
             st.markdown(f"""
             <div class='prediction-box stay'>
-                <h2 style='color: #2dc653;'>✅ Customer Likely to Stay</h2>
+                <h2>✅ Customer Likely to Stay</h2>
                 <h3>Churn Probability: {prediction_proba:.2%}</h3>
                 <p>Our model predicts that this customer is likely to remain with your company.</p>
             </div>
@@ -279,8 +302,8 @@ with tab1:
         
         if prediction_proba > 0.5:
             st.markdown("""
-            <div style='background-color: #ffebee; padding: 15px; border-radius: 8px; margin-bottom: 20px;'>
-                <h4 style='color: #c62828;'>Recommended Actions:</h4>
+            <div class='recommendation-box churn'>
+                <h4>Recommended Actions:</h4>
                 <ul>
                     <li>Reach out to the customer with a targeted retention offer</li>
                     <li>Conduct a satisfaction survey to identify pain points</li>
@@ -291,8 +314,8 @@ with tab1:
             """, unsafe_allow_html=True)
         else:
             st.markdown("""
-            <div style='background-color: #e8f5e9; padding: 15px; border-radius: 8px; margin-bottom: 20px;'>
-                <h4 style='color: #2e7d32;'>Recommended Actions:</h4>
+            <div class='recommendation-box stay'>
+                <h4>Recommended Actions:</h4>
                 <ul>
                     <li>Continue to maintain regular engagement</li>
                     <li>Consider cross-selling additional products</li>
