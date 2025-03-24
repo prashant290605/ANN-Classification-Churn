@@ -1,6 +1,6 @@
-import streamlit as st 
-import numpy as np 
-import tensorflow as tf 
+import streamlit as st
+import numpy as np
+import tensorflow as tf
 from sklearn.preprocessing import StandardScaler, LabelEncoder, OneHotEncoder
 import pandas as pd
 import pickle
@@ -164,62 +164,23 @@ with tab1:
     # load the trained model
     @st.cache_resource
     def load_model():
-        try:
-            # First try the standard way
-            return tf.keras.models.load_model('model.h5')
-        except (ImportError, TypeError, ValueError) as e:
-            st.warning(f"Standard model loading failed: {str(e)}, trying alternative method...")
-            try:
-                # Alternative loading method for compatibility
-                model = tf.keras.models.load_model('model.h5', compile=False)
-                # Compile the model with basic settings
-                model.compile(
-                    optimizer='adam',
-                    loss='binary_crossentropy',
-                    metrics=['accuracy']
-                )
-                return model
-            except Exception as e2:
-                st.error(f"Error loading model: {str(e2)}")
-                # Create a simple fallback model for demonstration
-                st.warning("Creating a simple fallback model for demonstration purposes.")
-                inputs = tf.keras.layers.Input(shape=(12,))
-                x = tf.keras.layers.Dense(10, activation='relu')(inputs)
-                outputs = tf.keras.layers.Dense(1, activation='sigmoid')(x)
-                model = tf.keras.Model(inputs=inputs, outputs=outputs)
-                model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-                return model
+        return tf.keras.models.load_model('model.h5')
     
     model = load_model()
     
     # load the encoder and scaler
     @st.cache_resource
     def load_encoders_and_scaler():
-        try:
-            with open('label_encoder_gender.pkl', 'rb') as file:
-                label_encoder_gender = pickle.load(file)
-                
-            with open('onehot_encoder_geo.pkl','rb') as file:
-                label_encoder_geo = pickle.load(file)
+        with open('label_encoder_gender.pkl', 'rb') as file:
+            label_encoder_gender = pickle.load(file)
             
-            with open('scaler.pkl','rb') as file:
-                scaler = pickle.load(file)
-                
-            return label_encoder_gender, label_encoder_geo, scaler
-        except Exception as e:
-            st.error(f"Error loading encoders or scaler: {str(e)}")
-            # Create fallback encoders and scaler
-            st.warning("Creating fallback encoders and scaler for demonstration purposes.")
-            label_encoder_gender = LabelEncoder()
-            label_encoder_gender.classes_ = np.array(['Female', 'Male'])
+        with open('onehot_encoder_geo.pkl','rb') as file:
+            label_encoder_geo = pickle.load(file)
+        
+        with open('scaler.pkl','rb') as file:
+            scaler = pickle.load(file)
             
-            onehot_encoder_geo = OneHotEncoder(sparse=False)
-            onehot_encoder_geo.categories_ = [np.array(['France', 'Germany', 'Spain'])]
-            onehot_encoder_geo.feature_names_in_ = np.array(['Geography'])
-            
-            scaler = StandardScaler()
-            
-            return label_encoder_gender, onehot_encoder_geo, scaler
+        return label_encoder_gender, label_encoder_geo, scaler
     
     label_encoder_gender, label_encoder_geo, scaler = load_encoders_and_scaler()
     
@@ -228,16 +189,10 @@ with tab1:
         st.markdown("<div class='header-style'>📋 Customer Information</div>", unsafe_allow_html=True)
         
         with st.container():
-            try:
-                geography = st.selectbox('🌎 Geography', label_encoder_geo.categories_[0], help="The country where the customer is located")
-            except:
-                geography = st.selectbox('🌎 Geography', ['France', 'Germany', 'Spain'], help="The country where the customer is located")
+            geography = st.selectbox('🌎 Geography', label_encoder_geo.categories_[0], help="The country where the customer is located")
             
-            try:
-                gender_options = label_encoder_gender.classes_.tolist()
-                gender = st.selectbox('👤 Gender', gender_options, help="Customer's gender")
-            except:
-                gender = st.selectbox('👤 Gender', ['Female', 'Male'], help="Customer's gender")
+            gender_options = label_encoder_gender.classes_.tolist()
+            gender = st.selectbox('👤 Gender', gender_options, help="Customer's gender")
             
             age = st.slider('🎂 Age', 18, 92, 35, help="Customer's age in years")
             
@@ -270,179 +225,184 @@ with tab1:
             if lottie_analysis:
                 st_lottie_placeholder = st_lottie(lottie_analysis, height=200, key="analysis")
             
+            # Prepare input data
+            input_data = pd.DataFrame({
+                'CreditScore': [credit_score],
+                'Gender': [label_encoder_gender.transform([gender])[0]],
+                'Age': [age],
+                'Tenure': [tenure],
+                'Balance': [balance],
+                'NumOfProducts': [num_of_products],
+                'HasCrCard': [has_cr_card],
+                'IsActiveMember': [is_active_member],
+                'EstimatedSalary': [estimated_salary]
+            })
+            
+            geo_encoded = label_encoder_geo.transform([[geography]]).toarray()
+            geo_encoded_df = pd.DataFrame(geo_encoded, columns=label_encoder_geo.get_feature_names_out(['Geography']))
+            
+            # Combine one hot encoded columns with input data
+            input_data = pd.concat([input_data.reset_index(drop=True), geo_encoded_df], axis=1)
+            
+            # Scale the input data - using try/except to handle potential feature mismatch
             try:
-                # Prepare input data
-                input_data = pd.DataFrame({
-                    'CreditScore': [credit_score],
-                    'Gender': [label_encoder_gender.transform([gender])[0]],
-                    'Age': [age],
-                    'Tenure': [tenure],
-                    'Balance': [balance],
-                    'NumOfProducts': [num_of_products],
-                    'HasCrCard': [has_cr_card],
-                    'IsActiveMember': [is_active_member],
-                    'EstimatedSalary': [estimated_salary]
-                })
-                
-                try:
-                    geo_encoded = label_encoder_geo.transform([[geography]]).toarray()
-                    geo_encoded_df = pd.DataFrame(geo_encoded, columns=label_encoder_geo.get_feature_names_out(['Geography']))
-                except:
-                    # Fallback for encoding geography
-                    geo_encoded = np.zeros((1, 3))
-                    if geography == 'France':
-                        geo_encoded[0, 0] = 1
-                    elif geography == 'Germany':
-                        geo_encoded[0, 1] = 1
-                    elif geography == 'Spain':
-                        geo_encoded[0, 2] = 1
-                    geo_encoded_df = pd.DataFrame(geo_encoded, columns=['Geography_France', 'Geography_Germany', 'Geography_Spain'])
-                
-                # Combine one hot encoded columns with input data
-                input_data = pd.concat([input_data.reset_index(drop=True), geo_encoded_df], axis=1)
-                
-                # Scale the input data - using try/except to handle potential feature mismatch
-                try:
-                    input_data_scaled = scaler.transform(input_data)
-                except ValueError as e:
-                    st.warning(f"Scaling error: {str(e)}. Using unscaled data for demonstration.")
-                    input_data_scaled = input_data.values
-                
-                # Make prediction
-                prediction = model.predict(input_data_scaled)
-                probability = prediction[0][0]
-                
-                # Remove the loading animation
-                if lottie_analysis:
-                    st_lottie_placeholder.empty()
-                
-                # Display prediction result
-                if probability > 0.5:
-                    st.markdown(f"<div class='prediction-box churn'><h2>⚠️ High Risk of Churn: {probability:.2%}</h2><p>This customer is likely to leave your company.</p></div>", unsafe_allow_html=True)
-                    
-                    # Recommendations for high churn risk
-                    st.markdown("<div class='recommendation-box churn'><h4>🔍 Recommendations to Retain This Customer:</h4><ul><li>Offer a personalized retention package</li><li>Schedule a follow-up call to address concerns</li><li>Consider a loyalty discount or upgrade</li><li>Review their account history for pain points</li></ul></div>", unsafe_allow_html=True)
-                    
-                    # Factors contributing to churn
-                    st.subheader("📊 Factors Contributing to Churn Risk")
-                    
-                    factors = []
-                    if age > 60:
-                        factors.append(("Age", "Older customers have a higher churn rate in our data"))
-                    if balance < 10000:
-                        factors.append(("Low Balance", "Customers with lower balances tend to switch more often"))
-                    if is_active_member == 0:
-                        factors.append(("Inactive Member", "Inactive members are 3x more likely to leave"))
-                    if num_of_products == 1:
-                        factors.append(("Single Product", "Customers with only one product have less stickiness"))
-                    
-                    # If no specific factors were identified, add a general note
-                    if not factors:
-                        factors.append(("Multiple Factors", "A combination of factors is contributing to the churn risk"))
-                    
-                    for factor, description in factors:
-                        st.markdown(f"**{factor}**: {description}")
-                    
+                input_data_scaled = scaler.transform(input_data)
+            except ValueError as e:
+                if "feature names" in str(e).lower():
+                    # If there's a feature name mismatch, we'll ignore feature names during transformation
+                    st.warning("Feature name mismatch detected. Using feature values only.")
+                    # Get the feature names the scaler was trained with
+                    if hasattr(scaler, 'feature_names_in_'):
+                        # Reorder columns to match the scaler's expected order
+                        expected_features = scaler.feature_names_in_
+                        # Create a DataFrame with zeros for any missing columns
+                        input_reordered = pd.DataFrame(0, index=range(1), columns=expected_features)
+                        # Fill in the values we have
+                        for col in input_data.columns:
+                            if col in expected_features:
+                                input_reordered[col] = input_data[col].values
+                        input_data_scaled = scaler.transform(input_reordered)
+                    else:
+                        # If we can't get the feature names, just try transforming the values
+                        input_data_scaled = scaler.transform(input_data.values)
                 else:
-                    st.markdown(f"<div class='prediction-box stay'><h2>✅ Low Risk of Churn: {(1-probability):.2%}</h2><p>This customer is likely to stay with your company.</p></div>", unsafe_allow_html=True)
-                    
-                    # Recommendations for low churn risk
-                    st.markdown("<div class='recommendation-box stay'><h4>🔍 Recommendations to Further Strengthen Loyalty:</h4><ul><li>Consider this customer for upselling opportunities</li><li>Enroll them in a referral program</li><li>Showcase new products or services</li><li>Acknowledge their loyalty with a thank you message</li></ul></div>", unsafe_allow_html=True)
-                
-                # Visualization
-                st.subheader("📈 Churn Probability Gauge")
-                
-                fig = go.Figure(go.Indicator(
-                    mode = "gauge+number",
-                    value = float(probability),
-                    domain = {'x': [0, 1], 'y': [0, 1]},
-                    title = {'text': "Churn Probability"},
-                    gauge = {
-                        'axis': {'range': [0, 1], 'tickwidth': 1, 'tickcolor': "darkblue"},
-                        'bar': {'color': "darkblue"},
-                        'bgcolor': "white",
-                        'borderwidth': 2,
-                        'bordercolor': "gray",
-                        'steps': [
-                            {'range': [0, 0.3], 'color': 'green'},
-                            {'range': [0.3, 0.7], 'color': 'yellow'},
-                            {'range': [0.7, 1], 'color': 'red'}],
-                        'threshold': {
-                            'line': {'color': "red", 'width': 4},
-                            'thickness': 0.75,
-                            'value': 0.5}}))
-                
-                fig.update_layout(height=300)
-                st.plotly_chart(fig, use_container_width=True)
-                
-            except Exception as e:
-                st.error(f"An error occurred during prediction: {str(e)}")
-                st.info("This is likely due to compatibility issues with the model or preprocessing components. Try running the app locally for full functionality.")
+                    # If it's a different error, re-raise it
+                    raise e
+            
+            # Predict churn
+            prediction = model.predict(input_data_scaled)
+            prediction_proba = prediction[0][0]
+            
+            # Add a small delay for animation effect
+            time.sleep(1)
+        
+        # Results display
+        st.markdown("<div class='header-style'>🔍 Prediction Results</div>", unsafe_allow_html=True)
+        
+        # Display prediction in a nice box with appropriate colors
+        if prediction_proba > 0.5:
+            st.markdown(f"""
+            <div class='prediction-box churn'>
+                <h2>⚠️ Customer Likely to Churn</h2>
+                <h3>Churn Probability: {prediction_proba:.2%}</h3>
+                <p>Our model predicts that this customer has a high risk of leaving your company.</p>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div class='prediction-box stay'>
+                <h2>✅ Customer Likely to Stay</h2>
+                <h3>Churn Probability: {prediction_proba:.2%}</h3>
+                <p>Our model predicts that this customer is likely to remain with your company.</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Visualization of the prediction
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=prediction_proba * 100,
+            domain={'x': [0, 1], 'y': [0, 1]},
+            title={'text': "Churn Probability"},
+            gauge={
+                'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "darkblue"},
+                'bar': {'color': "darkblue"},
+                'bgcolor': "white",
+                'borderwidth': 2,
+                'bordercolor': "gray",
+                'steps': [
+                    {'range': [0, 50], 'color': 'rgba(0, 250, 0, 0.3)'},
+                    {'range': [50, 100], 'color': 'rgba(250, 0, 0, 0.3)'}],
+                'threshold': {
+                    'line': {'color': "red", 'width': 4},
+                    'thickness': 0.75,
+                    'value': 50}}))
+        
+        fig.update_layout(height=300)
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Recommendations based on prediction
+        st.markdown("### 📋 Recommendations")
+        
+        if prediction_proba > 0.5:
+            st.markdown("""
+            <div class='recommendation-box churn'>
+                <h4>Recommended Actions:</h4>
+                <ul>
+                    <li>Reach out to the customer with a targeted retention offer</li>
+                    <li>Conduct a satisfaction survey to identify pain points</li>
+                    <li>Consider offering product upgrades or special rates</li>
+                    <li>Assign a dedicated customer service representative</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div class='recommendation-box stay'>
+                <h4>Recommended Actions:</h4>
+                <ul>
+                    <li>Continue to maintain regular engagement</li>
+                    <li>Consider cross-selling additional products</li>
+                    <li>Enroll in loyalty programs if not already</li>
+                    <li>Collect feedback to understand what they value most</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
 
 with tab2:
     st.markdown("<div class='header-style'>ℹ️ About the Model</div>", unsafe_allow_html=True)
     
+    if lottie_prediction:
+        st_lottie(lottie_prediction, height=200, key="prediction")
+    
     st.markdown("""
-    This application uses a neural network model trained on customer data to predict the likelihood of customer churn.
+    <div class='info-box'>
+        <h3>Model Information</h3>
+        <p>This churn prediction model uses a neural network built with TensorFlow to predict customer churn probability.</p>
+        
+        <h4>Features Used:</h4>
+        <ul>
+            <li><strong>Credit Score</strong>: Customer's credit worthiness</li>
+            <li><strong>Geography</strong>: Customer's location</li>
+            <li><strong>Gender</strong>: Customer's gender</li>
+            <li><strong>Age</strong>: Customer's age in years</li>
+            <li><strong>Tenure</strong>: How long the customer has been with the bank</li>
+            <li><strong>Balance</strong>: Account balance</li>
+            <li><strong>Products</strong>: Number of bank products used</li>
+            <li><strong>Credit Card</strong>: Whether the customer has a credit card</li>
+            <li><strong>Active Status</strong>: Whether the customer is active</li>
+            <li><strong>Salary</strong>: Customer's estimated salary</li>
+        </ul>
+        
+        <h4>How to Interpret Results:</h4>
+        <p>The model produces a probability score between 0 and 1:</p>
+        <ul>
+            <li><strong>Score > 0.5</strong>: Customer is likely to churn (leave)</li>
+            <li><strong>Score ≤ 0.5</strong>: Customer is likely to stay</li>
+        </ul>
+        
+        <h4>Performance Metrics:</h4>
+        <p>The model has been trained and evaluated on historical customer data with the following metrics:</p>
+        <ul>
+            <li>Accuracy: ~86%</li>
+            <li>Precision: ~83%</li>
+            <li>Recall: ~82%</li>
+            <li>F1 Score: ~82%</li>
+        </ul>
+    </div>
+    """, unsafe_allow_html=True)
     
-    ### Model Architecture
-    - Input Layer: 12 neurons (one for each feature)
-    - Hidden Layer 1: 20 neurons with ReLU activation
-    - Hidden Layer 2: 10 neurons with ReLU activation
-    - Output Layer: 1 neuron with Sigmoid activation
-    
-    ### Features Used
-    - **Credit Score**: Customer's credit score
-    - **Geography**: Customer's location
-    - **Gender**: Customer's gender
-    - **Age**: Customer's age
-    - **Tenure**: How long the customer has been with the bank
-    - **Balance**: Customer's account balance
-    - **Number of Products**: How many bank products the customer uses
-    - **Has Credit Card**: Whether the customer has a credit card
-    - **Is Active Member**: Whether the customer is active
-    - **Estimated Salary**: Customer's estimated salary
-    
-    ### Model Performance
-    - **Accuracy**: ~86%
-    - **Precision**: ~83%
-    - **Recall**: ~82%
-    - **F1 Score**: ~82%
-    
-    ### How It Works
-    The model takes in customer information, processes it through multiple layers of neurons, and outputs a probability between 0 and 1. A value closer to 1 indicates a higher likelihood of churn.
+    st.markdown("### Data Preprocessing")
+    st.markdown("""
+    - Categorical features (Gender, Geography) are encoded
+    - Numerical features are scaled to improve model performance
+    - Missing values are handled appropriately
     """)
     
-    # Display a sample visualization
-    st.markdown("### Sample Feature Importance")
-    
-    # This is a mock visualization - in a real app, you might want to use SHAP values or other explainability tools
-    feature_importance = {
-        'Age': 0.23,
-        'Balance': 0.18,
-        'IsActiveMember': 0.15,
-        'Geography': 0.12,
-        'CreditScore': 0.10,
-        'Gender': 0.08,
-        'NumOfProducts': 0.06,
-        'Tenure': 0.04,
-        'HasCrCard': 0.02,
-        'EstimatedSalary': 0.02
-    }
-    
-    fig = go.Figure([go.Bar(
-        x=list(feature_importance.values()),
-        y=list(feature_importance.keys()),
-        orientation='h'
-    )])
-    
-    fig.update_layout(
-        title="Feature Importance (Sample)",
-        xaxis_title="Importance",
-        yaxis_title="Feature",
-        height=500
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
-    
-    st.info("Note: This is a simplified representation of feature importance. Actual importance may vary based on specific customer profiles and model updates.") 
+    st.markdown("### Model Architecture")
+    st.markdown("""
+    The neural network consists of:
+    - Input layer matching the number of features
+    - Multiple hidden layers with ReLU activation
+    - Dropout layers to prevent overfitting
+    - Output layer with sigmoid activation for binary classification
+    """) 
